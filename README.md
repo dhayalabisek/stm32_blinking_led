@@ -2,324 +2,261 @@
 
 ## Aim
 
-To interface a digital sensor with an STM32 microcontroller and automatically control an LED according to the sensor output.
+To interface a digital sensor with an **STM32 microcontroller** and automatically control an LED according to the sensor output.
+
+---
 
 ## Apparatus Required
 
 | S. No. | Component | Quantity |
 |---:|---|---:|
-| 1 | STM32 development board | 1 |
-| 2 | Digital sensor or push button | 1 |
+| 1 | STM32 Nucleo-L031K6 development board | 1 |
+| 2 | Digital sensor / Push Button | 1 |
 | 3 | LED | 1 |
-| 4 | 220–330 Ω resistor | 1 |
+| 4 | 220–330 Ω Resistor | 1 |
 | 5 | Breadboard | 1 |
-| 6 | Jumper wires | As required |
-| 7 | USB cable | 1 |
+| 6 | Jumper Wires | As required |
+| 7 | USB Cable | 1 |
+| 8 | Wokwi Simulator | 1 |
+
+---
+
+## Theory
+
+A sensor-based LED control system is used to automatically control an LED according to the output of a sensor.
+
+In this experiment, a **digital sensor or push button** is used as the sensor input. The sensor output is connected to **PA0** of the STM32 Nucleo-L031K6.
+
+The sensor provides either a **HIGH (logic 1)** or **LOW (logic 0)** signal.
+
+The STM32 reads the digital signal at PA0 and controls the LED connected to **PA5**.
+
+The operation is:
+
+- When the sensor output is **HIGH**, the LED is turned **ON**.
+- When the sensor output is **LOW**, the LED is turned **OFF**.
+
+Thus, the STM32 automatically controls the LED according to the digital sensor input.
+
+---
+
+## Pin Configuration
+
+| Component | STM32 Pin | Function |
+|---|---|---|
+| Digital Sensor Output | PA0 | Digital Input |
+| LED Anode | PA5 through 220–330 Ω resistor | Digital Output |
+| LED Cathode | GND | Ground |
+| Sensor VCC | 3.3V | Power Supply |
+| Sensor GND | GND | Ground |
+
+---
+
+## Circuit Connections
+
+### Digital Sensor / Push Button
+
+| Sensor Pin | STM32 Connection |
+|---|---|
+| VCC | 3.3V |
+| GND | GND |
+| OUT / SIG | PA0 |
+
+### LED
+
+| LED Pin | STM32 Connection |
+|---|---|
+| Anode (+) | PA5 through 220–330 Ω resistor |
+| Cathode (−) | GND |
+
+---
+
+## Circuit Diagram
+
+~~~text
+             Digital Sensor
+          +------------------+
+   3.3V --| VCC              |
+   GND  --| GND              |
+          | OUT              |
+          +-------+----------+
+                  |
+                  |
+                 PA0
+                  |
+                  v
+        +-----------------------+
+        | STM32 Nucleo-L031K6   |
+        |                       |
+        | PA0 -> Digital Input  |
+        |                       |
+        | PA5 -> Digital Output |
+        +-----------+-----------+
+                    |
+                    |
+                  220Ω
+                    |
+                    |
+                   LED
+                    |
+                   GND
+~~~
+
+---
+
+## Block Diagram
+
+~~~text
+      Digital Sensor
+            |
+            | Digital Signal
+            v
+       +----------+
+       |   PA0    |
+       |   ADC    |
+       |  Input   |
+       +----+-----+
+            |
+            v
++-------------------------+
+| STM32 Nucleo-L031K6     |
+|                         |
+| Read Sensor Input       |
+|          |              |
+|          v              |
+| Control LED             |
++------------+------------+
+             |
+             | PA5
+             v
+           LED
+             |
+             v
+            GND
+~~~
+
+---
 
 ## Algorithm
-~~~
-The sensor continuously detects the required environmental condition.
-The sensor output is given to an STM32 GPIO input pin.
-The STM32 processes the sensor signal.
-If the programmed condition is satisfied, STM32 sets the LED GPIO HIGH.
-Otherwise, it sets the LED GPIO LOW.
-Thus, the LED operates automatically without manual switching.
-~~~
+
+1. Start the program.
+2. Initialize the STM32 HAL library.
+3. Configure the system clock.
+4. Configure **PA0 as a digital input**.
+5. Configure **PA5 as a digital output**.
+6. Read the digital signal from PA0.
+7. Check whether the sensor output is HIGH or LOW.
+8. If the sensor output is HIGH, set PA5 HIGH and turn ON the LED.
+9. If the sensor output is LOW, set PA5 LOW and turn OFF the LED.
+10. Repeat the process continuously.
+11. Stop.
+
+---
 
 ## Program
-~~~
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2026 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
+
 #include "main.h"
 
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
-/* USER CODE END Includes */
-
-/* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
-
-/* USER CODE END PTD */
-
-/* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
-UART_HandleTypeDef huart2;
-
-/* USER CODE BEGIN PV */
-
-/* USER CODE END PV */
-
-/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
-/* USER CODE BEGIN PFP */
 
-/* USER CODE END PFP */
-
-/* Private user code ---------------------------------------------------------*/
-
-
-const uint8_t digitCode[10] =
-{
-0x3F, //0
-0x06, //1
-0x5B, //2
-0x4F, //3
-0x66, //4
-0x6D, //5
-0x7D, //6
-0x07, //7
-0x7F, //8
-0x6F //9
-};
-
-void DisplayDigit(uint8_t value)
-{
-HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0, (value & (1<<0)) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, (value & (1<<1)) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-HAL_GPIO_WritePin(GPIOA, GPIO_PIN_2, (value & (1<<2)) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, (value & (1<<3)) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-HAL_GPIO_WritePin(GPIOA, GPIO_PIN_4, (value & (1<<4)) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, (value & (1<<5)) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-HAL_GPIO_WritePin(GPIOA, GPIO_PIN_6, (value & (1<<6)) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-}
-/* USER CODE BEGIN 0 */
-
-/* USER CODE END 0 */
-
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
 int main(void)
 {
+    GPIO_PinState sensor_state;
 
-  /* USER CODE BEGIN 1 */
+    /* Initialize HAL Library */
+    HAL_Init();
 
-  /* USER CODE END 1 */
+    /* Configure System Clock */
+    SystemClock_Config();
 
-  /* MCU Configuration--------------------------------------------------------*/
+    /* Initialize GPIO */
+    MX_GPIO_Init();
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+    while (1)
+    {
+        /* Read sensor input from PA0 */
+        sensor_state = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
 
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_USART2_UART_Init();
-  /* USER CODE BEGIN 2 */
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-	  for(uint8_t i = 0; i < 10; i++)
-	  {
-	  DisplayDigit(digitCode[i]);
-	  HAL_Delay(1000);
-	  }
-  }
-  /* USER CODE END 3 */
+        /* Check sensor condition */
+        if (sensor_state == GPIO_PIN_SET)
+        {
+            /* Sensor HIGH - Turn ON LED */
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+        }
+        else
+        {
+            /* Sensor LOW - Turn OFF LED */
+            HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+        }
+    }
 }
 
-/**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
-{
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-  /** Configure the main internal regulator output voltage
-  */
-  HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
-
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSIDiv = RCC_HSI_DIV1;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-}
-
-/**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART2_Init 0 */
-
-  /* USER CODE END USART2_Init 0 */
-
-  /* USER CODE BEGIN USART2_Init 1 */
-
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart2.Init.ClockPrescaler = UART_PRESCALER_DIV1;
-  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetTxFifoThreshold(&huart2, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_SetRxFifoThreshold(&huart2, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_UARTEx_DisableFifoMode(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
-
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
+/*------------------------------------------------
+  GPIO Initialization
+------------------------------------------------*/
 static void MX_GPIO_Init(void)
 {
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-  /* USER CODE END MX_GPIO_Init_1 */
+    /* Enable GPIOA Clock */
+    __HAL_RCC_GPIOA_CLK_ENABLE();
 
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
+    /* Configure PA0 as Digital Input */
+    GPIO_InitStruct.Pin = GPIO_PIN_0;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULL_DOWN;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_GREEN_GPIO_Port, LED_GREEN_Pin, GPIO_PIN_RESET);
+    /* Configure PA5 as Digital Output */
+    GPIO_InitStruct.Pin = GPIO_PIN_5;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LED_GREEN_Pin */
-  GPIO_InitStruct.Pin = LED_GREEN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(LED_GREEN_GPIO_Port, &GPIO_InitStruct);
-
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
-
-  /* USER CODE END MX_GPIO_Init_2 */
+    /* Initially turn OFF LED */
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
 }
 
-/* USER CODE BEGIN 4 */
 
-/* USER CODE END 4 */
-
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
+/*------------------------------------------------
+  System Clock Configuration
+------------------------------------------------*/
+void SystemClock_Config(void)
 {
-  /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
-  /* USER CODE END Error_Handler_Debug */
+    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+    /* Configure MSI Oscillator */
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+    RCC_OscInitStruct.MSIState = RCC_MSI_ON;
+    RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;
+    RCC_OscInitStruct.MSICalibrationValue = 0;
+
+    HAL_RCC_OscConfig(&RCC_OscInitStruct);
+
+    /* Configure CPU, AHB and APB clocks */
+    RCC_ClkInitStruct.ClockType =
+        RCC_CLOCKTYPE_HCLK |
+        RCC_CLOCKTYPE_SYSCLK |
+        RCC_CLOCKTYPE_PCLK1;
+
+    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_MSI;
+    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+
+    HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0);
 }
-#ifdef USE_FULL_ASSERT
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
-void assert_failed(uint8_t *file, uint32_t line)
-{
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
-}
-#endif /* USE_FULL_ASSERT */
-~~~
-## Circuit Diagram
-<img width="762" height="637" alt="image" src="https://github.com/user-attachments/assets/ba37c11d-4d2b-470f-b380-0f8f63ad743e" />
+
+---
+
+## OUTPUT
+
+<img width="720" height="602" alt="image" src="https://github.com/user-attachments/assets/879c0b43-1ccf-4c89-a847-0edf38d856be" />
+
 
 ## Result
 
-The digital sensor was successfully interfaced with the STM32 microcontroller. The LED connected to `PA5` turned ON when the sensor input at `PA0` was HIGH and turned OFF when the sensor input was LOW.
+The digital sensor was successfully interfaced with the STM32 microcontroller. The LED connected to PA5 turned ON when the sensor input at PA0 was HIGH and turned OFF when the sensor input was LOW.
