@@ -254,7 +254,8 @@ void SystemClock_Config(void)
 
 ## OUTPUT
 
-<img width="720" height="602" alt="image" src="https://github.com/user-attachments/assets/879c0b43-1ccf-4c89-a847-0edf38d856be" />
+<img width="576" height="581" alt="image" src="https://github.com/user-attachments/assets/1824232d-d27d-43da-b5ed-4351c987fd71" />
+
 
 
 ## Result
